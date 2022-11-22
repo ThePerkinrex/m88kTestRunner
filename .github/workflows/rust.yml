@@ -10,12 +10,16 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v3
-            - uses: taiki-e/create-gh-release-action@v1
-              with:
-                  # (optional) Path to changelog.
-                  # changelog: CHANGELOG.md
-                  # (required) GitHub token for creating GitHub Releases.
-                  token: ${{ secrets.GITHUB_TOKEN }}
+            - name: Release snapshot
+                id: release-snapshot
+                uses: actions/create-release@latest
+                env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                with:
+                  tag_name: ${{ steps.date.outputs.date }}
+                  release_name: Nightly ${{ steps.date.outputs.date }}
+                  draft: false
+                  prerelease: false
 
     upload-assets:
         strategy:
