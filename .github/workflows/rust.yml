@@ -11,11 +11,11 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             - name: Release snapshot
-                id: release-snapshot
-                uses: actions/create-release@latest
-                env:
+              id: release-snapshot
+              uses: actions/create-release@latest
+              env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                with:
+              with:
                   tag_name: ${{ steps.date.outputs.date }}
                   release_name: Nightly ${{ steps.date.outputs.date }}
                   draft: false
