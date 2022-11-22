@@ -34,23 +34,25 @@ jobs:
             matrix:
                 os:
                     - ubuntu-latest
-                    - macos-latest
                     - windows-latest
+                include:
+                    - arch: amd64
+                    - target: linux
+                      os: ubuntu-latest
+                    - target: windows
+                      os: windows-latest
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v3
-            - uses: taiki-e/upload-rust-binary-action@v1
+            - name: Build
+              run: cargo build --release
+            - uses: PeerXu/upload-asset@v1
               with:
-                  # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
-                  # Note that glob pattern is not supported yet.
-                  bin: test_runner
-                  # (optional) On which platform to distribute the `.tar.gz` file.
-                  # [default value: unix]
-                  # [possible values: all, unix, windows, none]
-                  tar: unix
-                  # (optional) On which platform to distribute the `.zip` file.
-                  # [default value: windows]
-                  # [possible values: all, unix, windows, none]
-                  zip: windows
-                  # (required) GitHub token for uploading assets to GitHub Releases.
-                  token: ${{ secrets.GITHUB_TOKEN }}
+                  file: path/to/binary.tar.gz
+                  os: ${{ matrix.target }}
+                  arch: ${{ matrix.arch }}
+                  with_tag: true
+                  with_sha1: true
+                  # suffix: .tar.gz
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
