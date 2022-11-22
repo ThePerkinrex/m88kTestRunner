@@ -13,7 +13,7 @@ jobs:
               id: date
               run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
             - name: Get current time
-              id: date
+              id: time
               run: echo "::set-output name=time::$(date +'%H:%M:%s')"
             - name: Test with environment variables
               run: echo $TAG_NAME - $RELEASE_NAME
@@ -28,7 +28,7 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
                   tag_name: nightly-tag-${{ steps.date.outputs.date }}-${{ github.sha }}
-                  release_name: Nightly ${{ steps.date.outputs.date }} ${{ steps.date.outputs.time }}
+                  release_name: Nightly ${{ steps.date.outputs.date }} ${{ steps.time.outputs.time }}
                   draft: false
                   prerelease: true
             - name: result
