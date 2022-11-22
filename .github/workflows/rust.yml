@@ -37,10 +37,12 @@ jobs:
                     - windows-latest
                 include:
                     - arch: amd64
+                      file: target/release/test_runner
                     - target: linux
                       os: ubuntu-latest
                     - target: windows
                       os: windows-latest
+                      file: target/release/test_runner.exe
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v3
@@ -48,7 +50,7 @@ jobs:
               run: cargo build --release
             - uses: PeerXu/upload-asset@v1
               with:
-                  file: path/to/binary.tar.gz
+                  file: ${{ matrix.file }}
                   os: ${{ matrix.target }}
                   arch: ${{ matrix.arch }}
                   with_tag: true
