@@ -27,6 +27,9 @@ jobs:
                   release_name: Nightly ${{ steps.date.outputs.date }} (${{ github.sha }})
                   draft: false
                   prerelease: true
+            - name: result
+              run: echo ${{ steps.release.upload_url }}
+
     upload-assets:
         strategy:
             matrix:
