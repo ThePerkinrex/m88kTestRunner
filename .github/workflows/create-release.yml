@@ -14,7 +14,7 @@ jobs:
               run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
             - name: Get current time
               id: time
-              run: echo "::set-output name=time::$(date +'%H:%M:%s')"
+              run: echo "::set-output name=time::$(date +'%H:%M:%S')"
             - name: Test with environment variables
               run: echo $TAG_NAME - $RELEASE_NAME
               env:
