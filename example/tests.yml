@@ -1,131 +1,54 @@
 config:
-    ens_file: src/CDV.ens
+    ens_file: src/file.ens
     assembler: bin/88110e.exe
     emulator: bin/88110.exe
 
 tests:
-    LongCad:
-        - r29: 12 # test_LongCad0
+    TestA:
+        - r29: 12 # test_TestA0
 
-        - r29: 0 # test_LongCad1
+        - r29: 0 # test_TestA1
 
-        - entrypoint: test_LongCad_any
-          name: test_LongCad_vacia
-          setup:
-              r30: 0xFFFC # pila
-              m(0xFFFC):
-                  word: 0x11000 # cadena
-              m(0x11000): # "Hola\0\0\0\0"
-                  text: ""
-                  # bytes: [0x48, 0x6f, 0x6c, 0x61, 0x00, 0x00, 0x00, 0x00]
-          checks:
-              r30: 0xFFFC
-              r29: 0
-        - entrypoint: test_LongCad_any
-          name: test_LongCad_simple
-          setup:
-              r30: 0xFFFC # pila
-              m(0xFFFC):
-                  word: 0x11000 # cadena
-              m(0x11000): # "Hola\0\0\0\0"
-                  text: Hola
-                  # bytes: [0x48, 0x6f, 0x6c, 0x61, 0x00, 0x00, 0x00, 0x00]
-          checks:
-              r30: 0xFFFC
-              r29: 4
-        - entrypoint: test_LongCad_any
-          name: test_LongCad_largo
+        - entrypoint: test_TestA_any
+          name: test_TestA_ej
           setup:
               r30: 0xFFFC # pila
               m(0xFFFC):
                   word: 0x11000 # cadena
               m(0x11000):
-                  text: "1234567"
+                  # Null terminated and word aligned
+                  text: ""
+                  # bytes: [0x48, 0x6f, 0x6c, 0x61, 0x00, 0x00, 0x00, 0x00]
+                  # byte: 0
+                  # half_word: 0
+                  # word: 0
+                  # double_word: 0
           checks:
               r30: 0xFFFC
-              r29: 7
-
-    BuscaCar:
-        - r29: 3 # test_BuscaCar0
-
-        - r29: 2 # test_BuscaCar1
-
-        - r29: 7 # test_BuscaCar2
-
-    CC:
-        - r29: 7 # test_CC0
-        - r29: 4 # test_CC1
-        - r29: 4 # test_CC2
-        - r29: 0 # test_CC3
-        - r29: 1 # test_CC4
-
-    BuscaMax:
-        - r29: 1 # test_BuscaMax0
-          m(0x12000):
-              word: 0
-
-        - r29: 4 # test_BuscaMax1
-          m(0x12000):
-              word: 0
-
-        - r29: 3 # test_BuscaMax2
-          m(0x12000):
-              word: 5
-    BuscaMax_custom:
-        - entrypoint: test_BuscaMax_any
-          name: test_BuscaMax_dinamico
-          setup:
-              r30: 0x10000 # pila
-              m(0x10000):
-                  word: 0x11000 # ref
-              m(0x10004):
-                  word: 10 # max
-              m(0x10008):
-                  word: 0x12000 # jj
-              m(0x11000): # "Hola\0\0\0\0"
-                  text: "a hola m, hola j"
-              m(0x12000):
-                  word: 0xDEADBEEF
-          checks:
-              r30: 0x10000
-              r29: 5
-              m(0x12000):
-                  word: 2
-        - entrypoint: test_BuscaMax_any
-          name: test_BuscaMax_noEncuentra
-          setup:
-              r30: 0x10000 # pila
-              m(0x10000):
-                  word: 0x11000 # ref
-              m(0x10004):
-                  word: 3 # max
-              m(0x10008):
-                  word: 0x12000 # jj
-              m(0x11000): # "Hola\0\0\0\0"
-                  text: "abcdef"
-              m(0x12000):
-                  word: 0xDEADBEEF
-          checks:
-              r30: 0x10000
               r29: 0
-              m(0x12000):
-                  word: 0xFFFFFFFF
-        - entrypoint: test_BuscaMax_any
-          name: test_BuscaMax_largo
+              m(0x10):
+                  word: 0
+    TestB:
+        - r29: 12 # test_TestB0
+
+        - r29: 0 # test_TestB1
+
+        - entrypoint: test_TestB_any
+          name: test_TestB_ej
           setup:
-              r30: 0x10000 # pila
-              m(0x10000):
-                  word: 0x11000 # ref
-              m(0x10004):
-                  word: 10 # max
-              m(0x10008):
-                  word: 0x12000 # jj
-              m(0x11000): # "Hola\0\0\0\0"
-                  text: "aaaaa123aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-              m(0x12000):
-                  word: 0xDEADBEEF
+              r30: 0xFFFC # pila
+              m(0xFFFC):
+                  word: 0x11000 # cadena
+              m(0x11000):
+                  # Null terminated and word aligned
+                  text: ""
+                  # bytes: [0x48, 0x6f, 0x6c, 0x61, 0x00, 0x00, 0x00, 0x00]
+                  # byte: 0
+                  # half_word: 0
+                  # word: 0
+                  # double_word: 0
           checks:
-              r30: 0x10000
-              r29: 255
-              m(0x12000):
-                  word: 0x8
+              r30: 0xFFFC
+              r29: 0
+              m(0x10):
+                  word: 0
