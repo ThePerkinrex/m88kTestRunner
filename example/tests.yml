@@ -52,3 +52,10 @@ tests:
               r29: 0
               m(0x10):
                   word: 0
+    TestC:
+        r29: 0 # test_TestC
+    TestD:
+        setup:
+            r30: 0
+        checks:
+            r29: 0 # test_TestD
