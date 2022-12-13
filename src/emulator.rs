@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     io::Write,
+    iter::repeat,
     path::Path,
     process::{Command, Output, Stdio},
 };
@@ -129,7 +130,7 @@ pub enum MemoryData {
 impl Debug for MemoryData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bytes(arg0) => f.debug_tuple("Bytes").field(arg0).finish(),
+            Self::Bytes(arg0) => hexdump(f, arg0),
             Self::Byte(arg0) => f.debug_tuple("Byte").field(arg0).finish(),
             Self::HalfWord(arg0) => f.debug_tuple("HalfWord").field(arg0).finish(),
             Self::Word(arg0) => write!(f, "Word(0x{:X})", arg0),
@@ -137,6 +138,45 @@ impl Debug for MemoryData {
             Self::Text(arg0) => f.debug_tuple("Text").field(arg0).finish(),
         }
     }
+}
+
+fn hexdump(f: &mut std::fmt::Formatter<'_>, b: &[u8]) -> std::fmt::Result {
+    const HD_BYTES: usize = 16;
+    const SECTIONS: usize = 2;
+    const SECTIONED_BYTES: usize = HD_BYTES / SECTIONS;
+    const EMPTY: &[u8] = &[];
+
+    writeln!(f)?;
+    for line in b.chunks(HD_BYTES) {
+        let iter = line
+            .chunks(SECTIONED_BYTES)
+            .chain(repeat(EMPTY))
+            .take(SECTIONS);
+        for section in iter
+            .clone()
+            .map(|s| s.iter().map(Some).chain(repeat(None)).take(SECTIONED_BYTES))
+        {
+            for b in section {
+                if let Some(b) = b {
+                    write!(f, "{b:02x} ")?;
+                } else {
+                    write!(f, "   ")?;
+                }
+            }
+            write!(f, "   ")?;
+        }
+
+        for section in iter {
+            for b in section {
+                let c = *b as char;
+                write!(f, "{}", if c.is_ascii_graphic() { c } else { '.' })?;
+            }
+            write!(f, " ")?;
+        }
+        writeln!(f)?;
+    }
+
+    Ok(())
 }
 
 // const fn word_aligned_len(len: u32) -> u32 {
