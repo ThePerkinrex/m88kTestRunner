@@ -14,6 +14,7 @@ mod emulator;
 mod iter;
 mod loadable;
 mod tests;
+mod threadpool;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

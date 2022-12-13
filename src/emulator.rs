@@ -11,6 +11,36 @@ use serde::Deserialize;
 
 use crate::iter::IteratorExt;
 
+#[derive(Debug, Clone, Copy)]
+pub struct EmulatorBuilder<'a> {
+    emu: &'a Path,
+    serie: &'a Path,
+}
+
+impl<'a> EmulatorBuilder<'a> {
+    pub fn new<EmuPath: AsRef<Path>, SeriePath: AsRef<Path>>(
+        emu: &'a EmuPath,
+        serie: &'a SeriePath,
+    ) -> Self {
+        Self {
+            emu: emu.as_ref(),
+            serie: serie.as_ref(),
+        }
+    }
+
+    pub fn build(&self) -> Emulator {
+        let mut cmd = Command::new(self.emu);
+        cmd.arg("-c")
+            .arg(self.serie)
+            .arg("CDV.bin")
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped());
+        Emulator { command: cmd }
+    }
+}
+
+#[derive(Debug)]
 pub struct Emulator {
     command: Command,
 }
@@ -58,14 +88,7 @@ impl Emulator {
         emu: EmuPath,
         serie: SeriePath,
     ) -> Self {
-        let mut cmd = Command::new(emu.as_ref());
-        cmd.arg("-c")
-            .arg(serie.as_ref())
-            .arg("CDV.bin")
-            .stdin(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdout(Stdio::piped());
-        Self { command: cmd }
+        EmulatorBuilder::new(&emu, &serie).build()
     }
 
     pub fn run(

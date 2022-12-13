@@ -3,6 +3,7 @@ use std::{
     process::{Command, Output},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Compiler<'a> {
     assembler: &'a Path,
     ens_file: &'a Path,
