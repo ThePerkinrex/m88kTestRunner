@@ -63,15 +63,17 @@ where
                         Ok(Enqueue::Data(data)) => {
                             if let Some(t) = threads.iter_mut().find(|t| !t.working) {
                                 t.send(data, id);
+                                to_complete += 1;
                             } else {
                                 waiting.push_back((data, id));
                             }
                             results.push(None);
+                            // println!("{id} {to_complete} {}", waiting.len());
                             id += 1;
-                            to_complete += 1;
                             false
                         }
                         Ok(Enqueue::Finish) => {
+                            // println!("finishing");
                             finishing = true;
                             false
                         }
@@ -80,19 +82,26 @@ where
                     }
                 };
 
+                // if finishing {
+                // println!("FINISHING {} {}", to_complete, waiting.len())
+                // }
+
                 for t in &mut threads {
                     while let Some((data, id)) = t.try_recv() {
+                        // println!("Finished {id}");
                         results[id] = Some(data);
                         to_complete -= 1;
                         if !t.working {
                             if let Some((data, id)) = waiting.pop_front() {
                                 t.send(data, id);
+                                to_complete += 1;
                             }
                         }
                     }
                 }
 
-                if finishing && to_complete == 0 {
+                if finishing && to_complete == 0 && waiting.is_empty() {
+                    // println!("queue len: {}", waiting.len());
                     break;
                 }
 
@@ -125,9 +134,10 @@ struct ThreadData<T, U, Id> {
     working: bool,
 }
 
-impl<T, U, Id> ThreadData<T, U, Id> {
+impl<T, U, Id: std::fmt::Display> ThreadData<T, U, Id> {
     fn send(&mut self, t: T, id: Id) {
         // TODO if working fail
+        // println!("Starting {id}");
         self.tx.send((thread::current(), t, id)).unwrap();
         self.t.thread().unpark();
         self.working = true;

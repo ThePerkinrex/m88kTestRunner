@@ -102,12 +102,12 @@ impl From<std::io::Error> for EmulatorError {
 }
 
 impl Emulator {
-    pub fn new<EmuPath: AsRef<Path>, SeriePath: AsRef<Path>>(
-        emu: EmuPath,
-        serie: SeriePath,
-    ) -> Self {
-        EmulatorBuilder::new(&emu, &serie).build()
-    }
+    // pub fn new<EmuPath: AsRef<Path>, SeriePath: AsRef<Path>>(
+    //     emu: EmuPath,
+    //     serie: SeriePath,
+    // ) -> Self {
+    //     EmulatorBuilder::new(&emu, &serie).build()
+    // }
 
     pub fn run(
         &mut self,

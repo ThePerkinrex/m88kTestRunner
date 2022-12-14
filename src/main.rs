@@ -1,4 +1,4 @@
-use std::{fs, io::Write, ops::Deref, path::PathBuf, process::Output, sync::Arc};
+use std::{fs, io::Write, ops::Deref, path::PathBuf, process::Output};
 
 use clap::Parser;
 use compiler::{Compiler, CompilerBuilder};
@@ -64,10 +64,10 @@ fn main() {
     let assembler_builder = CompilerBuilder::new(assembler);
     let emulator_builder = EmulatorBuilder::new(&emulator, &serie_file);
 
-    let start = std::time::Instant::now();
+    // let start = std::time::Instant::now();
     let threadpool = {
-        let (assembler_builder, emulator_builder) =
-            (assembler_builder.clone(), emulator_builder.clone());
+        // let (assembler_builder, emulator_builder) =
+        //     (assembler_builder.clone(), emulator_builder.clone());
         ThreadPool::<(String, String, _), _>::new(
             move |(group, name, registers): (String, String, TestData), id| {
                 let path: PathBuf = PathBuf::from("tmp").join(format!("{id}"));
@@ -89,11 +89,14 @@ fn main() {
         )
     };
 
-    let assembler_builder = assembler_builder.ens_file(ens_file);
+    // let assembler_builder = assembler_builder.ens_file(ens_file);
     let mut groups = 0;
+    // let mut i = 0;
     for (group, tests) in conf.tests.get_tests() {
         for (test_name, registers) in tests {
-            threadpool.send_data((group.clone(), test_name, registers.clone()))
+            // println!("{i:02} {group} {test_name}");
+            threadpool.send_data((group.clone(), test_name, registers.clone()));
+            // i += 1;
         }
         groups += 1;
     }
@@ -103,7 +106,6 @@ fn main() {
     for (res_g, name, res) in threadpool.results() {
         if let Some(group) = current.0.take() {
             if group == res_g {
-                current.1.push((name, res));
                 current.0 = Some(group)
             } else {
                 results.push((group, current.1));
@@ -111,8 +113,12 @@ fn main() {
             }
         } else {
             current.0 = Some(res_g);
-            current.1.push((name, res));
+            // current.1.push((name, res));
         }
+        current.1.push((name, res));
+    }
+    if let Some(group) = current.0.take() {
+        results.push((group, current.1));
     }
     fs::remove_dir_all("tmp").unwrap();
     // let end = std::time::Instant::now();
@@ -214,95 +220,11 @@ fn main() {
             }
         }
     }
-    // for (group, tests) in conf.tests.get_tests() {
-    //     stdout.set_color(&bold_color_spec).unwrap();
-    //     writeln!(stdout, "{group}").unwrap();
-    //     stdout.flush().unwrap();
-    //     for (test_name, registers) in tests {
-    //         stdout.set_color(&normal_color_spec).unwrap();
-    //         write!(stdout, "{test_name:>30} ").unwrap();
-    //         stdout.flush().unwrap();
-    //         match run_test(
-    //             &assembler_builder.build(),
-    //             &mut emulator_builder.build(),
-    //             &test_name,
-    //             registers,
-    //         ) {
-    //             Ok(()) => {
-    //                 ok_tests += 1;
-    //                 stdout.set_color(&ok_color_spec).unwrap();
-    //                 writeln!(stdout, "OK").unwrap();
-    //                 stdout.flush().unwrap();
-    //             }
-    //             Err(x) => {
-    //                 failed_tests += 1;
-    //                 stdout.set_color(&error_color_spec).unwrap();
-    //                 writeln!(stdout, "ERROR").unwrap();
-    //                 stdout.flush().unwrap();
-    //                 stdout.set_color(&normal_color_spec).unwrap();
-    //                 match x {
-    //                     RunError::CompileExec(out) => {
-    //                         writeln!(stdout, "{:>20} compiling: {out}", "").unwrap()
-    //                     }
-    //                     RunError::RunExec(out) => {
-    //                         writeln!(stdout, "{:>20} running: {out}", "").unwrap()
-    //                     }
-    //                     RunError::Compile(out) => {
-    //                         writeln!(stdout, "{:>20} compiling (OUTPUT):", "").unwrap();
-    //                         writeln!(stdout, "STDOUT:").unwrap();
-    //                         stdout.write_all(&out.stdout).unwrap();
-    //                         writeln!(stdout, "STDERR:").unwrap();
-    //                         stdout.write_all(&out.stdout).unwrap();
-    //                         writeln!(stdout).unwrap();
-    //                     }
-    //                     RunError::Run(out) => {
-    //                         writeln!(stdout, "{:>20} running (OUTPUT):", "").unwrap();
-    //                         writeln!(stdout, "STDOUT:").unwrap();
-    //                         stdout.write_all(&out.stdout).unwrap();
-    //                         writeln!(stdout, "STDERR:").unwrap();
-    //                         stdout.write_all(&out.stdout).unwrap();
-    //                         writeln!(stdout).unwrap();
-    //                     }
-    //                     RunError::RegistersFailed(failures) => {
-    //                         for failure in failures {
-    //                             let (name, expected, found) = match failure {
-    //                                 DataFailure::Register(a, b, c) => {
-    //                                     (format!("{a}"), format!("{b}"), format!("{c}"))
-    //                                 }
-    //                                 DataFailure::Memory(a, b, c) => {
-    //                                     (format!("m[0x{a:X}]"), format!("{b:?}"), format!("{c:?}"))
-    //                                 }
-    //                             };
-    //                             stdout.set_color(&normal_color_spec).unwrap();
-    //                             write!(stdout, " =+= ").unwrap();
-    //                             stdout.set_color(&blue_color_spec).unwrap();
-    //                             write!(stdout, "{name}").unwrap();
-    //                             stdout.set_color(&normal_color_spec).unwrap();
-    //                             write!(stdout, " was ").unwrap();
-    //                             stdout.set_color(&error_color_spec).unwrap();
-    //                             write!(stdout, "{found}").unwrap();
-    //                             stdout.set_color(&normal_color_spec).unwrap();
-    //                             write!(stdout, ", but ").unwrap();
-    //                             stdout.set_color(&blue_color_spec).unwrap();
-    //                             write!(stdout, "{expected}").unwrap();
-    //                             stdout.set_color(&normal_color_spec).unwrap();
-    //                             writeln!(stdout, " was expected =+=").unwrap();
-    //                             stdout.flush().unwrap();
-    //                         }
-    //                         writeln!(stdout).unwrap();
-    //                         stdout.flush().unwrap();
-    //                     }
-    //                 }
-    //                 stdout.flush().unwrap();
-    //             }
-    //         }
-    //     }
-    // }
 
-    let end = std::time::Instant::now();
+    // let end = std::time::Instant::now();
 
     // println!("Results: {results:#?}");
-    println!("Time for multithreaded: {} ms", (end - start).as_millis());
+    // println!("Time for multithreaded: {} ms", (end - start).as_millis());
     stdout.set_color(&bold_color_spec).unwrap();
     writeln!(stdout).unwrap();
     writeln!(stdout, "{failed_tests:>6} tests failed").unwrap();
