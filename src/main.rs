@@ -1,4 +1,4 @@
-use std::{fs, io::Write, ops::Deref, path::PathBuf, process::Output};
+use std::{fs, io::Write, num::NonZeroUsize, ops::Deref, path::PathBuf, process::Output};
 
 use clap::Parser;
 use compiler::{Compiler, CompilerBuilder};
@@ -7,7 +7,7 @@ use emulator::{Emulator, EmulatorBuilder, GPRegister, MemoryData, Operation};
 use loadable::Loadable;
 use termcolor::{BufferedStandardStream, Color, ColorSpec, WriteColor};
 use tests::TestData;
-use threadpool::ThreadPool;
+use threadpool::{FinishStatus, ThreadPool, UpdatedStatus};
 
 mod compiler;
 mod config;
@@ -65,7 +65,7 @@ fn main() {
     let emulator_builder = EmulatorBuilder::new(&emulator, &serie_file);
 
     // let start = std::time::Instant::now();
-    let threadpool = {
+    let mut threadpool = {
         // let (assembler_builder, emulator_builder) =
         //     (assembler_builder.clone(), emulator_builder.clone());
         ThreadPool::<(String, String, _), _>::new(
@@ -85,7 +85,10 @@ fn main() {
                 let r = run_test(&assembler, &mut emulator, name.as_str(), &registers);
                 (group, name, r)
             },
-            4,
+            std::thread::available_parallelism()
+                .map(NonZeroUsize::get)
+                .unwrap_or(6)
+                - 2,
         )
     };
 
@@ -101,9 +104,35 @@ fn main() {
         groups += 1;
     }
 
+    threadpool.finish();
+
+    let mut old_len = 0;
+    const SPINNER_CHARS: [char; 8] = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
+    let mut i = 0;
+    while (threadpool.is_finished()) != FinishStatus::Finished && groups != 0 {
+        if let UpdatedStatus::Changed(data) = threadpool.update_status() {
+            let mut s = data.join(", ");
+            if let Some(size) = termsize::get() {
+                if s.len() + 13 > size.cols as usize {
+                    s = s[..size.cols as usize - 16].into();
+                    s += "...";
+                }
+            }
+            print!("  Working on {s:<old_len$}");
+            old_len = s.len();
+            print!("\r");
+        }
+        print!("{}", SPINNER_CHARS[i % SPINNER_CHARS.len()]);
+        i += 1;
+        print!("\r");
+    }
+    println!("Done        ");
+
     let mut results = Vec::with_capacity(groups);
     let mut current = (None, vec![]);
-    for (res_g, name, res) in threadpool.results() {
+    let r = threadpool.results();
+    // println!("Gotten results");
+    for (res_g, name, res) in r {
         if let Some(group) = current.0.take() {
             if group == res_g {
                 current.0 = Some(group)

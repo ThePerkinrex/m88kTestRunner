@@ -4,11 +4,17 @@ use std::{
     thread::{self, JoinHandle, Thread},
 };
 
+use crate::tests::TestData;
+
 pub struct ThreadPool<T, U> {
     // threads: Vec<ThreadData<T, U>>,
     job_distributing_thread: JoinHandle<Vec<U>>,
     // job: Box<dyn Job<T, U>>,
     enqueue_tx: Sender<Enqueue<T>>,
+    update_rx: Receiver<Update<usize>>,
+    status: Vec<(usize, String)>,
+    n_finished: usize,
+    n_sent: usize,
 }
 
 enum Enqueue<T> {
@@ -18,7 +24,7 @@ enum Enqueue<T> {
 
 impl<T, U> ThreadPool<T, U>
 where
-    T: Send + 'static,
+    T: Send + 'static + Name,
     U: Send + 'static,
 {
     pub fn new<J: Job<T, U> + 'static>(job: J, thread_n: usize) -> Self {
@@ -48,7 +54,8 @@ where
                 working: false,
             })
         }
-        let (enqueue_tx, enqueue_rx) = channel();
+        let (enqueue_tx, enqueue_rx) = channel::<Enqueue<T>>();
+        let (update_tx, update_rx) = channel();
         let job_distributing_thread = thread::spawn(move || {
             let mut id = 0;
             let mut waiting = VecDeque::new();
@@ -62,6 +69,7 @@ where
                     match enqueue_rx.try_recv() {
                         Ok(Enqueue::Data(data)) => {
                             if let Some(t) = threads.iter_mut().find(|t| !t.working) {
+                                update_tx.send(Update::Started(id, data.name())).unwrap();
                                 t.send(data, id);
                                 to_complete += 1;
                             } else {
@@ -88,11 +96,13 @@ where
 
                 for t in &mut threads {
                     while let Some((data, id)) = t.try_recv() {
+                        update_tx.send(Update::Finished(id)).unwrap();
                         // println!("Finished {id}");
                         results[id] = Some(data);
                         to_complete -= 1;
                         if !t.working {
                             if let Some((data, id)) = waiting.pop_front() {
+                                update_tx.send(Update::Started(id, data.name())).unwrap();
                                 t.send(data, id);
                                 to_complete += 1;
                             }
@@ -102,6 +112,7 @@ where
 
                 if finishing && to_complete == 0 && waiting.is_empty() {
                     // println!("queue len: {}", waiting.len());
+                    // println!("FINISHING");
                     break;
                 }
 
@@ -114,15 +125,55 @@ where
         Self {
             job_distributing_thread,
             enqueue_tx,
+            update_rx,
+            status: Vec::with_capacity(thread_n),
+            n_finished: 0,
+            n_sent: 0,
         }
     }
 
-    pub fn send_data(&self, data: T) {
+    pub fn send_data(&mut self, data: T) {
+        self.n_sent += 1;
         self.enqueue_tx.send(Enqueue::Data(data)).unwrap();
     }
 
-    pub fn results(self) -> Vec<U> {
+    pub fn update_status(&mut self) -> UpdatedStatus {
+        let mut changed = false;
+        while let Ok(data) = self.update_rx.try_recv() {
+            changed = true;
+            match data {
+                Update::Started(id, name) => self.status.push((id, name)),
+                Update::Finished(id) => {
+                    self.n_finished += 1;
+                    self.status.retain(|(id2, _)| &id != id2)
+                }
+            }
+        }
+
+        if changed {
+            UpdatedStatus::Changed(self.status.iter().map(|(_, n)| n.clone()).collect())
+        } else {
+            UpdatedStatus::Unchanged
+        }
+    }
+
+    pub fn finish(&self) {
         self.enqueue_tx.send(Enqueue::Finish).unwrap();
+    }
+
+    pub const fn is_finished(&self) -> FinishStatus {
+        // println!("{} {}", self.n_sent, self.n_finished);
+        if self.n_sent == 0 {
+            FinishStatus::NotStarted
+        } else if self.n_finished == self.n_sent {
+            FinishStatus::Finished
+        } else {
+            FinishStatus::Working
+        }
+    }
+
+    pub fn results(self) -> Vec<U> {
+        self.job_distributing_thread.thread().unpark();
         self.job_distributing_thread.join().unwrap()
     }
 }
@@ -172,4 +223,31 @@ where
     fn clone(&self) -> Box<dyn Job<T, U, Id> + Send> {
         Box::new(self.clone())
     }
+}
+
+pub trait Name {
+    fn name(&self) -> String;
+}
+
+impl Name for (String, String, TestData) {
+    fn name(&self) -> String {
+        format!("{}/{}", self.0, self.1)
+    }
+}
+
+enum Update<Id> {
+    Started(Id, String),
+    Finished(Id),
+}
+
+pub enum UpdatedStatus {
+    Changed(Vec<String>),
+    Unchanged,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FinishStatus {
+    NotStarted,
+    Working,
+    Finished,
 }
