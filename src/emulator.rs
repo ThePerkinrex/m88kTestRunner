@@ -3,36 +3,54 @@ use std::{
     fmt::Debug,
     io::Write,
     iter::repeat,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Output, Stdio},
 };
 
 use serde::Deserialize;
 
-use crate::iter::IteratorExt;
+use crate::{compiler::STD_OUTFILE, iter::IteratorExt};
 
-#[derive(Debug, Clone, Copy)]
-pub struct EmulatorBuilder<'a> {
-    emu: &'a Path,
-    serie: &'a Path,
+#[derive(Debug, Clone)]
+pub struct EmulatorBuilder {
+    emu: PathBuf,
+    serie: PathBuf,
+    binfile: Option<PathBuf>,
 }
 
-impl<'a> EmulatorBuilder<'a> {
+impl EmulatorBuilder {
     pub fn new<EmuPath: AsRef<Path>, SeriePath: AsRef<Path>>(
-        emu: &'a EmuPath,
-        serie: &'a SeriePath,
+        emu: EmuPath,
+        serie: SeriePath,
     ) -> Self {
         Self {
-            emu: emu.as_ref(),
-            serie: serie.as_ref(),
+            emu: emu.as_ref().to_path_buf(),
+            serie: serie.as_ref().to_path_buf(),
+            binfile: None,
         }
     }
 
+    pub fn binfile_mut(&mut self, binfile: PathBuf) -> &mut Self {
+        self.binfile = Some(binfile);
+        self
+    }
+
+    pub fn binfile(&self, binfile: PathBuf) -> Self {
+        let mut s = self.clone();
+        s.binfile_mut(binfile);
+        s
+    }
+
     pub fn build(&self) -> Emulator {
-        let mut cmd = Command::new(self.emu);
+        let mut cmd = Command::new(&self.emu);
         cmd.arg("-c")
-            .arg(self.serie)
-            .arg("CDV.bin")
+            .arg(&self.serie)
+            .arg(
+                self.binfile
+                    .as_ref()
+                    .map(AsRef::as_ref)
+                    .unwrap_or_else(|| Path::new(STD_OUTFILE)),
+            )
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .stdout(Stdio::piped());
