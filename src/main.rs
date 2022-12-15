@@ -68,8 +68,8 @@ fn main() {
     let mut threadpool = {
         // let (assembler_builder, emulator_builder) =
         //     (assembler_builder.clone(), emulator_builder.clone());
-        ThreadPool::<(String, String, _), _>::new(
-            move |(group, name, registers): (String, String, TestData), id| {
+        ThreadPool::<(usize, String, String, _), _>::new(
+            move |(group_id, group, name, registers): (usize, String, String, TestData), id| {
                 let path: PathBuf = PathBuf::from("tmp").join(format!("{id}"));
                 fs::create_dir_all(&path).unwrap();
                 let bin_path = path.join("CDV.bin");
@@ -83,7 +83,7 @@ fn main() {
                 let assembler = builder.build();
                 // println!("Running job {id}: {} {}", group, name);
                 let r = run_test(&assembler, &mut emulator, name.as_str(), &registers);
-                (group, name, r)
+                (group_id, group, name, r)
             },
             std::thread::available_parallelism()
                 .map(NonZeroUsize::get)
@@ -93,15 +93,20 @@ fn main() {
     };
 
     // let assembler_builder = assembler_builder.ens_file(ens_file);
-    let mut groups = 0;
     // let mut i = 0;
-    for (group, tests) in conf.tests.get_tests() {
+    let mut tests = conf.tests.get_tests().collect::<Vec<_>>();
+    let groups = tests.len();
+    let mut failed_groups = Vec::with_capacity(groups);
+    tests.sort_by(|(a, _), (b, _)| a.cmp(b));
+    for (i, (group, tests)) in tests.into_iter().enumerate() {
+        let mut tests = tests.collect::<Vec<_>>();
+        failed_groups.push((group.clone(), tests.len(), vec![]));
+        tests.sort_by(|(a, _), (b, _)| a.cmp(b));
         for (test_name, registers) in tests {
             // println!("{i:02} {group} {test_name}");
-            threadpool.send_data((group.clone(), test_name, registers.clone()));
+            threadpool.send_data((i, group.clone(), test_name, registers.clone()));
             // i += 1;
         }
-        groups += 1;
     }
 
     threadpool.finish();
@@ -132,22 +137,22 @@ fn main() {
     let mut current = (None, vec![]);
     let r = threadpool.results();
     // println!("Gotten results");
-    for (res_g, name, res) in r {
-        if let Some(group) = current.0.take() {
+    for (group_id, res_g, name, res) in r {
+        if let Some((group_id, group)) = current.0.take() {
             if group == res_g {
-                current.0 = Some(group)
+                current.0 = Some((group_id, group))
             } else {
-                results.push((group, current.1));
+                results.push((group_id, group, current.1));
                 current = (None, vec![]);
             }
         } else {
-            current.0 = Some(res_g);
+            current.0 = Some((group_id, res_g));
             // current.1.push((name, res));
         }
         current.1.push((name, res));
     }
-    if let Some(group) = current.0.take() {
-        results.push((group, current.1));
+    if let Some((group_id, group)) = current.0.take() {
+        results.push((group_id, group, current.1));
     }
     fs::remove_dir_all("tmp").unwrap();
     // let end = std::time::Instant::now();
@@ -170,10 +175,11 @@ fn main() {
     // let start = std::time::Instant::now();
     let mut failed_tests = 0;
     let mut ok_tests = 0;
-    for (group, tests) in results {
+    for (group_id, group, tests) in results {
         stdout.set_color(&bold_color_spec).unwrap();
         writeln!(stdout, "{group}").unwrap();
         stdout.flush().unwrap();
+        let mut failed_in_group = vec![];
         for (test_name, result) in tests {
             stdout.set_color(&normal_color_spec).unwrap();
             write!(stdout, "{test_name:>30} ").unwrap();
@@ -186,6 +192,7 @@ fn main() {
                     stdout.flush().unwrap();
                 }
                 Err(x) => {
+                    failed_in_group.push(test_name);
                     failed_tests += 1;
                     stdout.set_color(&error_color_spec).unwrap();
                     writeln!(stdout, "ERROR").unwrap();
@@ -248,12 +255,27 @@ fn main() {
                 }
             }
         }
+        failed_groups[group_id].2 = failed_in_group;
     }
 
     // let end = std::time::Instant::now();
 
     // println!("Results: {results:#?}");
     // println!("Time for multithreaded: {} ms", (end - start).as_millis());
+    stdout.set_color(&normal_color_spec).unwrap();
+    for (group, total, failed) in failed_groups.iter().filter(|(_, _, f)| !f.is_empty()) {
+        writeln!(stdout).unwrap();
+        writeln!(
+            stdout,
+            "     {group} has failed tests: {}/{total}",
+            failed.len()
+        )
+        .unwrap();
+        for test in failed {
+            writeln!(stdout, "       {test} failed").unwrap();
+        }
+    }
+    stdout.flush().unwrap();
     stdout.set_color(&bold_color_spec).unwrap();
     writeln!(stdout).unwrap();
     writeln!(stdout, "{failed_tests:>6} tests failed").unwrap();

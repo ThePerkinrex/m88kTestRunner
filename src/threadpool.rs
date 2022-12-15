@@ -229,9 +229,9 @@ pub trait Name {
     fn name(&self) -> String;
 }
 
-impl Name for (String, String, TestData) {
+impl Name for (usize, String, String, TestData) {
     fn name(&self) -> String {
-        format!("{}/{}", self.0, self.1)
+        format!("{}/{}", self.1, self.2)
     }
 }
 
