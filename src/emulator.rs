@@ -157,7 +157,7 @@ impl Emulator {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryData {
     Bytes(Vec<u8>),
@@ -166,6 +166,20 @@ pub enum MemoryData {
     Word(u32),
     DoubleWord(u64),
     Text(String),
+}
+
+impl PartialEq for MemoryData {
+    fn eq(&self, other: &Self) -> bool {
+        let (m_self, m_other) = (self.text_as_bytes(), other.text_as_bytes());
+        match (m_self, m_other) {
+            (Self::Bytes(l0), Self::Bytes(r0)) => l0 == r0,
+            (Self::Byte(l0), Self::Byte(r0)) => l0 == r0,
+            (Self::HalfWord(l0), Self::HalfWord(r0)) => l0 == r0,
+            (Self::Word(l0), Self::Word(r0)) => l0 == r0,
+            (Self::DoubleWord(l0), Self::DoubleWord(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
 }
 
 impl Debug for MemoryData {
@@ -240,6 +254,13 @@ impl MemoryData {
     //         Text(s) => word_aligned_len(s.len() as u32 + 1),
     //     }
     // }
+
+    pub fn text_as_bytes(&self) -> Self {
+        match self {
+            Self::Text(t) => Self::Bytes(t.bytes().chain(std::iter::once(0)).collect()),
+            x => x.clone(),
+        }
+    }
 
     pub fn len_real(&self) -> u32 {
         use MemoryData::*;
