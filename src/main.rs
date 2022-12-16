@@ -60,9 +60,9 @@ fn main() {
                 .join("serie")
         });
 
-    let ens_file_contents = fs::read_to_string(&ens_file).unwrap();
+    let ens_file_contents = fs::read_to_string(ens_file).unwrap();
     let assembler_builder = CompilerBuilder::new(assembler);
-    let emulator_builder = EmulatorBuilder::new(&emulator, &serie_file);
+    let emulator_builder = EmulatorBuilder::new(&emulator, serie_file);
 
     // let start = std::time::Instant::now();
     let mut threadpool = {
@@ -130,6 +130,8 @@ fn main() {
         print!("{}", SPINNER_CHARS[i % SPINNER_CHARS.len()]);
         i += 1;
         print!("\r");
+        std::io::stdout().flush().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
     }
     println!("Done        ");
 

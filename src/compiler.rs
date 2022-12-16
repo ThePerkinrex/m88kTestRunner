@@ -46,6 +46,10 @@ impl CompilerBuilder {
     }
 
     pub fn build(&self) -> Compiler {
+        // println!("A {}", self.assembler.display());
+        // println!("E {:?}", self.ens_file);
+        // println!("O {:?}", self.outfile);
+        // println!("W {:?}", self.current_working_dir);
         Compiler {
             assembler: &self.assembler,
             ens_file: self.ens_file.as_ref().unwrap(),
@@ -79,7 +83,7 @@ impl<'a> Compiler<'a> {
     // }
 
     pub fn run(&self, test_name: &str) -> std::io::Result<Output> {
-        let mut c = Command::new(self.assembler);
+        let mut c = Command::new(current_dir().unwrap().join(self.assembler));
         c.arg("-e")
             .arg(test_name)
             .arg("-o")
