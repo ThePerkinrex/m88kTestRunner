@@ -207,6 +207,9 @@ fn main() {
                         RunError::RunExec(out) => {
                             writeln!(stdout, "{:>20} running: {out}", "").unwrap()
                         }
+                        // RunError::StopFailed(out) => {
+                        //     writeln!(stdout, "{:>20} didn't reach stop: {out}", "").unwrap()
+                        // }
                         RunError::Compile(out) => {
                             writeln!(stdout, "{:>20} compiling (OUTPUT):", "").unwrap();
                             writeln!(stdout, "STDOUT:").unwrap();
@@ -223,7 +226,16 @@ fn main() {
                             stdout.write_all(&out.stdout).unwrap();
                             writeln!(stdout).unwrap();
                         }
-                        RunError::RegistersFailed(failures) => {
+                        RunError::RegistersFailed(failures, stop_code) => {
+                            if let Some(code) = stop_code {
+                                stdout.set_color(&normal_color_spec).unwrap();
+                                write!(stdout, " =+= Unexpected stop condition: ").unwrap();
+                                stdout.set_color(&error_color_spec).unwrap();
+                                write!(stdout, "{code}").unwrap();
+                                stdout.set_color(&normal_color_spec).unwrap();
+                                writeln!(stdout, " =+=").unwrap();
+                                stdout.flush().unwrap();
+                            }
                             for failure in failures {
                                 let (name, expected, found) = match failure {
                                     DataFailure::Register(a, b, c) => {
@@ -291,6 +303,7 @@ fn main() {
 enum DataFailure {
     Register(GPRegister, u32, u32),
     Memory(u32, MemoryData, MemoryData),
+    // StopFailed(String),
 }
 
 #[derive(Debug)]
@@ -299,7 +312,7 @@ enum RunError {
     Compile(Output),
     RunExec(std::io::Error),
     Run(Output),
-    RegistersFailed(Vec<DataFailure>),
+    RegistersFailed(Vec<DataFailure>, Option<String>),
 }
 
 fn run_test(
@@ -364,13 +377,14 @@ fn run_test(
         .map_err(|e| match e {
             emulator::EmulatorError::Failure(e) => RunError::Run(e),
             emulator::EmulatorError::IO(e) => RunError::RunExec(e),
+            // emulator::EmulatorError::Unfinished(e) => RunError::StopFailed(e),
         })?;
     // println!("{r1:?}");
     let mut res = vec![];
     for check in registers.deref() {
         match check {
             tests::TestCheck::Register(register, val) => {
-                let val = *val as u32;
+                let val = *val;
                 let found = run_res.get_reg(register);
                 if val != found {
                     res.push(DataFailure::Register(*register, val, found));
@@ -388,6 +402,9 @@ fn run_test(
     if res.is_empty() {
         Ok(())
     } else {
-        Err(RunError::RegistersFailed(res))
+        Err(RunError::RegistersFailed(
+            res,
+            run_res.get_stop_code().map(ToString::to_string),
+        ))
     }
 }

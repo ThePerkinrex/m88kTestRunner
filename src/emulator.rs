@@ -7,6 +7,7 @@ use std::{
     process::{Command, Output, Stdio},
 };
 
+use encoding_rs::mem::decode_latin1;
 use serde::Deserialize;
 
 use crate::{compiler::STD_OUTFILE, iter::IteratorExt};
@@ -149,11 +150,10 @@ impl Emulator {
         if !output.status.success() {
             return Err(EmulatorError::Failure(output));
         }
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(RunResult::new(
-            stdout.lines().skip(op_skip + 13),
-            memory_res,
-        ))
+        let stdout = decode_latin1(&output.stdout);
+        let lines = stdout.lines().skip(op_skip + 12);
+        // let stop_code = lines.next().unwrap().trim();
+        Ok(RunResult::new(lines, memory_res))
     }
 }
 
@@ -310,10 +310,12 @@ impl MemoryData {
 pub struct RunResult {
     registers: [u32; 32],
     memory: HashMap<u32, MemoryData>,
+    stop_code: Option<String>,
 }
 
 impl RunResult {
-    fn new<'a, I: Iterator<Item = &'a str> + Clone>(lines: I, memory: &[(u32, u32)]) -> Self {
+    fn new<'a, I: Iterator<Item = &'a str> + Clone>(mut lines: I, memory: &[(u32, u32)]) -> Self {
+        let stop_code = lines.next().unwrap().trim();
         let lines = lines.skip(2); // Special registers
         let mut registers = [0; 32];
         for (i, reg) in lines
@@ -391,6 +393,11 @@ impl RunResult {
         Self {
             registers,
             memory: memory_res,
+            stop_code: if stop_code == "Fin ejecución" {
+                None
+            } else {
+                Some(stop_code.to_owned())
+            },
         }
     }
 
@@ -400,5 +407,9 @@ impl RunResult {
 
     pub fn get_mem(&self, addr: u32) -> Option<&MemoryData> {
         self.memory.get(&addr)
+    }
+
+    pub fn get_stop_code(&self) -> Option<&str> {
+        self.stop_code.as_ref().map(AsRef::as_ref)
     }
 }

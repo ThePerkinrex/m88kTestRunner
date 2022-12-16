@@ -13,3 +13,4 @@ serde = {version = "1.0.145", features=["derive"]}
 clap = {version = "4.0.22", features=["derive"]}
 termcolor = "1.1.3"
 termsize = "0.1"
+encoding_rs = "0.8.31"
