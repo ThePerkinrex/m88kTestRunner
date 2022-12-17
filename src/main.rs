@@ -99,6 +99,7 @@ fn main() {
     let mut failed_groups = Vec::with_capacity(groups);
     tests.sort_by(|(a, _), (b, _)| a.cmp(b));
     for (i, (group, tests)) in tests.into_iter().enumerate() {
+        // println!("G: {}", group);
         let mut tests = tests.collect::<Vec<_>>();
         failed_groups.push((group.clone(), tests.len(), vec![]));
         tests.sort_by(|(a, _), (b, _)| a.cmp(b));
@@ -133,25 +134,27 @@ fn main() {
         std::io::stdout().flush().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
-    println!("Done        ");
+    print!("            \r");
 
     let mut results = Vec::with_capacity(groups);
     let mut current = (None, vec![]);
     let r = threadpool.results();
     // println!("Gotten results");
-    for (group_id, res_g, name, res) in r {
+    for (res_group_id, res_g, name, res) in r {
+        // println!("{res_group_id:02} {res_g} {name}");
         if let Some((group_id, group)) = current.0.take() {
             if group == res_g {
                 current.0 = Some((group_id, group))
             } else {
                 results.push((group_id, group, current.1));
-                current = (None, vec![]);
+                current = (Some((res_group_id, res_g)), vec![]);
             }
         } else {
-            current.0 = Some((group_id, res_g));
+            current.0 = Some((res_group_id, res_g));
             // current.1.push((name, res));
         }
         current.1.push((name, res));
+        // println!("{current:?}");
     }
     if let Some((group_id, group)) = current.0.take() {
         results.push((group_id, group, current.1));
